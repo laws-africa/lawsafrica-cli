@@ -7,8 +7,11 @@ name = "lawsafrica-cli"
 version = "0.1.0"
 description = "Command-line client for the Laws.Africa legislation and Knowledge Base APIs"
 readme = "README.md"
-requires-python = ">=3.10"
-license = {text = "MIT"}
+requires-python = ">=3.12"
+license = {file = "LICENSE"}
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+]
 dependencies = [
   "cobalt>=9,<10",
   "httpx>=0.27,<1",

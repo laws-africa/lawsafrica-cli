@@ -17,7 +17,7 @@ accept slashless forms.
 
 ## Environment
 
-Use Python 3.10 or newer. From this directory, either create a local virtual
+Use Python 3.12 or newer. From this directory, either create a local virtual
 environment:
 
 ```bash
@@ -72,6 +72,9 @@ Keep the `lawsafrica` command friendly to AI agents and shell automation:
 - Describe `kb retrieve` as keyword/phrase search that returns relevant
   passages, not as question answering. Guide callers to use focused search text
   rather than natural-language questions.
+- For current-law research in a legislation Knowledge Base, guide callers to
+  add `--commenced --not-repealed`; clearly state that these should be omitted
+  for historical, repealed, or uncommenced-legislation research.
 - For iterative legislation research, guide callers to take
   `results[].metadata.work_frbr_uri` values from a broad KB search and repeat
   `--work-frbr-uri` on a focused follow-up search.

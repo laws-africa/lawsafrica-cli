@@ -137,6 +137,7 @@ class CLITestCase(unittest.TestCase):
         kb_help = self.runner.invoke(app, ["kb", "retrieve", "--help"])
         self.assertIn("keywords or phrases", kb_help.output)
         self.assertIn("not a question", kb_help.output)
+        self.assertIn("--commenced --not-repealed", kb_help.output)
         self.assertIn("results[].metadata.work_frbr_uri", kb_help.output)
 
     def test_version_is_available_without_credentials(self):

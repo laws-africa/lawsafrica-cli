@@ -122,6 +122,10 @@ does not answer questions. Use focused search text such as "water services" or
 "municipal water supply", rather than a question such as "What are the rules
 for water services?". Interpret the returned passages yourself.
 
+For current-law research in a legislation Knowledge Base, normally add
+--commenced --not-repealed. Omit those filters only when you intentionally need
+uncommenced, repealed, or historical legislation.
+
 Refining Knowledge Base searches
 
 After a broad search, use the work FRBR URIs in results[].metadata.work_frbr_uri
@@ -134,7 +138,7 @@ Useful starting points
   lawsafrica legislation expressions list --place za-cpt --page-size 1
   lawsafrica legislation expression get /akn/za/act/1998/55
   lawsafrica kb list
-  lawsafrica kb retrieve za-legislation "water services" --top-k 5
+  lawsafrica kb retrieve za-legislation "water services" --commenced --not-repealed --top-k 5
 
 Documentation
 
@@ -541,6 +545,8 @@ def _kb_filters(
     epilog=(
         "Example: lawsafrica kb retrieve za-legislation \"water services\" --top-k 3\n\n"
         "Use keywords or phrases, not questions: KB retrieval returns relevant passages, not answers.\n\n"
+        "For current-law research in a legislation Knowledge Base, normally add "
+        "--commenced --not-repealed.\n\n"
         "Refine a follow-up search by repeating --work-frbr-uri with values from "
         "results[].metadata.work_frbr_uri.\n\n"
         "Read query text from stdin: printf '%s' \"water services\" | "

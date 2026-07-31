@@ -46,13 +46,17 @@ lawsafrica legislation expressions list --place za-cpt --uncommenced --page-size
 lawsafrica legislation expressions list --place za-cpt --repealed --principal --all
 ```
 
-Expression listings support the created/updated timestamp exact and range
-filters, plus `--commenced`/`--uncommenced`,
+Expression listings support exact ISO 8601 timestamps with `--created-at` and
+`--updated-at`, and inclusive timestamp ranges with `--created-after`,
+`--created-before`, `--updated-after`, and `--updated-before`. The CLI
+validates these timestamps before contacting the API. Listings also support
+`--commenced`/`--uncommenced`,
 `--repealed`/`--not-repealed`, and `--principal`/`--not-principal`. Run
 `lawsafrica legislation expressions list --help` for the full option list.
 
 Fetch expression metadata, related JSON, or content with either a work or
-expression FRBR URI:
+expression FRBR URI. FRBR URIs must be absolute and begin with `/akn/`; the
+CLI validates them with Cobalt before contacting the API:
 
 ```sh
 lawsafrica legislation expression get /akn/za/act/1998/55
@@ -75,18 +79,19 @@ lawsafrica kb get za-legislation
 lawsafrica kb retrieve za-legislation "water pollution" --top-k 5
 ```
 
-`kb retrieve` exposes every filter in the API schema as an option. Use exact
-filters such as `--frbr-place za-cpt` or `--work-frbr-uri /akn/za/act/1998/55`.
-The matching `--*-in` options accept repeated values, for example:
+`kb retrieve` exposes every filter in the API schema as an option. Each
+resource filter accepts one or more values by repeating the same option; the
+CLI sends those as an API `__in` filter, even for a single value:
 
 ```sh
 lawsafrica kb retrieve za-legislation "municipal water services" \
-  --frbr-place-in za-cpt --frbr-place-in za-jhb \
+  --frbr-place za-cpt --frbr-place za-jhb \
   --frbr-doctype act --uncommenced --not-repealed
 ```
 
-The available exact/repeated filters are work FRBR URI, expression FRBR URI,
-FRBR place, document type, and document subtype. The legislation-only boolean
+The repeatable filters are work FRBR URI, expression FRBR URI, FRBR place,
+document type, and document subtype. Work and expression FRBR URI values must
+be absolute `/akn/...` URIs. The legislation-only boolean
 filters are commenced, repealed, and principal. Retrieval returns the API's raw
 `results` payload, including item content, metadata, and similarity score.
 

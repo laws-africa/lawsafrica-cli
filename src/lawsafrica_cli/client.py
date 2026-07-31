@@ -8,6 +8,7 @@ from typing import Any
 from urllib.parse import quote
 
 import httpx
+from cobalt import FrbrUri
 
 
 DEFAULT_LEGISLATION_API_BASE_URL = "https://api.laws.africa/v3"
@@ -19,12 +20,19 @@ class LawsAfricaAPIError(RuntimeError):
     """An expected client-side or API error suitable for presentation by the CLI."""
 
 
+def parse_frbr_uri(frbr_uri: str) -> str:
+    """Validate and canonicalise an absolute FRBR URI with Cobalt."""
+    if not frbr_uri.startswith("/"):
+        raise LawsAfricaAPIError("FRBR URI must begin with '/'.")
+    try:
+        return str(FrbrUri.parse(frbr_uri))
+    except ValueError as error:
+        raise LawsAfricaAPIError(f"Invalid FRBR URI: {frbr_uri!r}.") from error
+
+
 def normalize_frbr_uri(frbr_uri: str) -> str:
-    """Return an API path-safe FRBR URI without its leading slash."""
-    normalized = frbr_uri.strip().lstrip("/")
-    if not normalized.startswith("akn/") or normalized == "akn":
-        raise LawsAfricaAPIError("FRBR URI must begin with 'akn/'.")
-    return normalized
+    """Return a Cobalt-validated FRBR URI for use in an API path."""
+    return parse_frbr_uri(frbr_uri).lstrip("/")
 
 
 class LawsAfricaAPIClient:

@@ -11,6 +11,10 @@ Use expression terminology consistently. The API may resolve a work FRBR URI to
 the latest expression, but CLI commands should describe the returned resources
 as expressions.
 
+Require absolute FRBR URIs beginning with `/akn/`. Validate every user-supplied
+FRBR URI with Cobalt's `FrbrUri.parse` before making an API request; do not
+accept slashless forms.
+
 ## Environment
 
 Use Python 3.10 or newer. From this directory, either create a local virtual
@@ -54,8 +58,8 @@ Keep the `lawsafrica` command friendly to AI agents and shell automation:
 - Keep Content API commands under `lawsafrica legislation` and Knowledge Base
   commands under `lawsafrica kb`.
 - Surface documented Knowledge Base retrieval filters as normal `kb retrieve`
-  options. Repeated `--*-in` options must be encoded as JSON arrays in the
-  nested API `filters` object.
+  options. Resource filters are repeatable options and must be encoded as JSON
+  arrays in the nested API `filters` object.
 
 ## Testing
 

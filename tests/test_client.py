@@ -16,15 +16,17 @@ class LawsAfricaAPIClientTestCase(unittest.TestCase):
             client=httpx.Client(transport=httpx.MockTransport(handler)),
         )
 
-    def test_normalizes_and_encodes_frbr_uri(self):
-        self.assertEqual("akn/za/act/1998/55", normalize_frbr_uri(" /akn/za/act/1998/55 "))
+    def test_validates_normalizes_and_encodes_frbr_uri(self):
+        self.assertEqual("akn/za/act/1998/55", normalize_frbr_uri("/akn/za/act/1998/55"))
         client = self.make_client(lambda request: httpx.Response(200, json={}))
         self.assertEqual(
             "https://api.example.test/v3/akn/za/act/1998/55/eng@2014-01-17/!main~sec_3",
             client.path_url("/akn/za/act/1998/55/eng@2014-01-17/!main~sec_3"),
         )
-        with self.assertRaisesRegex(LawsAfricaAPIError, "must begin"):
+        with self.assertRaisesRegex(LawsAfricaAPIError, "must begin with '/'"):
             normalize_frbr_uri("za/act/1998/55")
+        with self.assertRaisesRegex(LawsAfricaAPIError, r"Invalid FRBR URI: '/akn/'"):
+            normalize_frbr_uri("/akn/")
 
     def test_sends_bearer_api_key_and_follows_next_page(self):
         requests = []

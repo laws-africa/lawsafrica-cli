@@ -2,34 +2,43 @@
 
 [![PyPI](https://img.shields.io/pypi/v/lawsafrica-cli.svg)](https://pypi.org/project/lawsafrica-cli/)
 
-`lawsafrica` is a command-line client for the Laws.Africa Legal Knowledge Platform.
+`lawsafrica` is a command-line client for the [Laws.Africa Legal Knowledge Platform](https://laws.africa/platform/).
 
 This CLI covers the Legislation Content API and Knowledge Base API. It is designed for AI agents and shell automation:
 API responses are emitted as raw JSON on standard output, while diagnostics go to standard error.
 
-Run `lawsafrica --help` to discover the APIs, and `lawsafrica docs` for a short explanation of works, expressions, FRBR
-URIs, and links to the official developer documentation. Command-group help also links to the relevant API
-reference.
-
-Install it in an isolated environment:
-
-```sh
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install .
-export LAWSAFRICA_API_KEY='your-api-key'
-```
+## Get started
 
 Create a free account at [platform.laws.africa](https://platform.laws.africa/),
 then create an API key in the [API keys page](https://platform.laws.africa/api-keys/).
 
-For local production access, keep the key in an untracked `prod.env` file and load it without printing it:
+Install the CLI from PyPI with pip:
 
 ```sh
-set -a
-source prod.env
-set +a
+python -m pip install --upgrade lawsafrica-cli
 ```
+
+Or run it without installing anything permanently, using [uv](https://docs.astral.sh/uv/):
+
+```sh
+uvx --from lawsafrica-cli lawsafrica --help
+```
+
+Set the API key in your shell before making API requests:
+
+```sh
+export LAWSAFRICA_API_KEY='your-api-key'
+lawsafrica --help
+```
+
+With `uvx`, the same command is:
+
+```sh
+uvx --from lawsafrica-cli lawsafrica places list
+```
+
+Run `lawsafrica docs` for a short explanation of works, expressions, FRBR URIs, and links to the official developer
+documentation. Command-group help also links to the relevant API reference.
 
 ## Places
 
@@ -173,35 +182,8 @@ python -m unittest discover -s tests -v
 Each release uses the version in `pyproject.toml`. Before releasing, update it to the
 intended [PEP 440](https://peps.python.org/pep-0440/) version, run the test suite above, and commit the release changes.
 
-### First PyPI release: publish manually
+To create a release:
 
-The first release may be uploaded manually, before a PyPI trusted publisher is configured. Create a PyPI account and an
-API token with account-wide scope, then build and check the two distribution files. Ensure `dist/` contains only the
-version you intend to publish.
-
-```sh
-python -m pip install --upgrade build twine
-python -m build
-python -m twine check dist/*
-python -m twine upload dist/*
-```
-
-When prompted by Twine, use `__token__` as the username and paste the PyPI API token as the password. Do not commit or
-share that token. Finally, test the published package in a fresh virtual environment:
-
-```sh
-python -m pip install --upgrade lawsafrica-cli
-lawsafrica --version
-```
-
-### Later releases: GitHub trusted publishing
-
-After the first upload, configure PyPI trusted publishing for this GitHub repository, the `pypi` environment, and
-`.github/workflows/publish.yml`. The workflow uses GitHub OpenID Connect, so no PyPI token is stored in GitHub.
-
-For each later release, update and commit the version, push the release tag, then create a GitHub Release from that tag.
-Creating the release runs the publish workflow, which builds an sdist and wheel and uploads them to PyPI.
-
-See the [Python Packaging User Guide](https://packaging.python.org/en/latest/tutorials/packaging-projects/)
-and [PyPI trusted-publisher documentation](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/)
-for account and publisher setup details.
+- update and commit the version, and push to GitHub.
+- create a GitHub Release using a tag `v<version>` that matches the version in `pyproject.toml`.
+- creating the release runs the publish workflow, which builds an sdist and wheel and uploads them to PyPI.

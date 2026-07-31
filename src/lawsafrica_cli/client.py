@@ -1,4 +1,4 @@
-"""HTTP client and pagination helpers for the Laws.Africa Content API."""
+"""HTTP client and pagination helpers for Laws.Africa APIs."""
 
 from __future__ import annotations
 
@@ -10,11 +10,12 @@ from urllib.parse import quote
 import httpx
 
 
-DEFAULT_API_BASE_URL = "https://api.laws.africa/v3"
+DEFAULT_LEGISLATION_API_BASE_URL = "https://api.laws.africa/v3"
+DEFAULT_KB_API_BASE_URL = "https://api.laws.africa/ai/v1"
 API_KEY_ENVIRONMENT_VARIABLE = "LAWSAFRICA_API_KEY"
 
 
-class ContentAPIError(RuntimeError):
+class LawsAfricaAPIError(RuntimeError):
     """An expected client-side or API error suitable for presentation by the CLI."""
 
 
@@ -22,22 +23,22 @@ def normalize_frbr_uri(frbr_uri: str) -> str:
     """Return an API path-safe FRBR URI without its leading slash."""
     normalized = frbr_uri.strip().lstrip("/")
     if not normalized.startswith("akn/") or normalized == "akn":
-        raise ContentAPIError("FRBR URI must begin with 'akn/'.")
+        raise LawsAfricaAPIError("FRBR URI must begin with 'akn/'.")
     return normalized
 
 
-class ContentAPIClient:
-    """A synchronous authenticated Content API client."""
+class LawsAfricaAPIClient:
+    """A synchronous authenticated client for a Laws.Africa API base URL."""
 
     def __init__(
         self,
         api_key: str,
-        base_url: str = DEFAULT_API_BASE_URL,
+        base_url: str = DEFAULT_LEGISLATION_API_BASE_URL,
         *,
         client: httpx.Client | None = None,
     ) -> None:
         if not api_key:
-            raise ContentAPIError(
+            raise LawsAfricaAPIError(
                 f"{API_KEY_ENVIRONMENT_VARIABLE} is required; set it to a Laws.Africa API key."
             )
         self.base_url = base_url.rstrip("/")
@@ -45,13 +46,13 @@ class ContentAPIClient:
         self._client.headers["Authorization"] = f"Bearer {api_key}"
 
     @classmethod
-    def from_env(cls, base_url: str = DEFAULT_API_BASE_URL) -> "ContentAPIClient":
+    def from_env(cls, base_url: str = DEFAULT_LEGISLATION_API_BASE_URL) -> "LawsAfricaAPIClient":
         return cls(os.environ.get(API_KEY_ENVIRONMENT_VARIABLE, ""), base_url)
 
     def close(self) -> None:
         self._client.close()
 
-    def __enter__(self) -> "ContentAPIClient":
+    def __enter__(self) -> "LawsAfricaAPIClient":
         return self
 
     def __exit__(self, *args: object) -> None:
@@ -62,14 +63,14 @@ class ContentAPIClient:
         return f"{self.base_url}/{quote(path.lstrip('/'), safe='/!~:@-.')}"
 
     def get_json(self, path: str, params: Mapping[str, Any] | None = None) -> Any:
-        response = self._get(self.path_url(path), params=params)
-        try:
-            return response.json()
-        except ValueError as error:
-            raise ContentAPIError("API response was not valid JSON.") from error
+        return self._json_response(self._request("GET", self.path_url(path), params=params))
+
+    def post_json(self, path: str, payload: Mapping[str, Any]) -> Any:
+        """POST a JSON request body and return a JSON response."""
+        return self._json_response(self._request("POST", self.path_url(path), json=payload))
 
     def get_bytes(self, path: str, params: Mapping[str, Any] | None = None) -> bytes:
-        return self._get(self.path_url(path), params=params).content
+        return self._request("GET", self.path_url(path), params=params).content
 
     def list_json(
         self,
@@ -88,7 +89,7 @@ class ContentAPIClient:
         count = page["count"]
         next_url = page["next"]
         while next_url:
-            response = self._get(next_url)
+            response = self._request("GET", next_url)
             next_page = self._json_response(response)
             self._validate_page(next_page)
             results.extend(next_page["results"])
@@ -96,15 +97,20 @@ class ContentAPIClient:
 
         return {"count": count, "next": None, "previous": None, "results": results}
 
-    def _get(
-        self, url: str, params: Mapping[str, Any] | None = None
+    def _request(
+        self,
+        method: str,
+        url: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        json: Mapping[str, Any] | None = None,
     ) -> httpx.Response:
         try:
-            response = self._client.get(url, params=params)
+            response = self._client.request(method, url, params=params, json=json)
         except httpx.HTTPError as error:
-            raise ContentAPIError(f"API request failed: {error}") from error
+            raise LawsAfricaAPIError(f"API request failed: {error}") from error
         if response.is_error:
-            raise ContentAPIError(self._error_message(response))
+            raise LawsAfricaAPIError(self._error_message(response))
         return response
 
     @staticmethod
@@ -112,14 +118,14 @@ class ContentAPIClient:
         try:
             return response.json()
         except ValueError as error:
-            raise ContentAPIError("API response was not valid JSON.") from error
+            raise LawsAfricaAPIError("API response was not valid JSON.") from error
 
     @staticmethod
     def _validate_page(page: Any) -> None:
         if not isinstance(page, dict) or not isinstance(page.get("results"), list):
-            raise ContentAPIError("API response was not a paginated result set.")
+            raise LawsAfricaAPIError("API response was not a paginated result set.")
         if "count" not in page or "next" not in page or "previous" not in page:
-            raise ContentAPIError("API pagination response was incomplete.")
+            raise LawsAfricaAPIError("API pagination response was incomplete.")
 
     @staticmethod
     def _error_message(response: httpx.Response) -> str:
@@ -135,3 +141,9 @@ class ContentAPIClient:
         if not detail:
             detail = response.reason_phrase or "Request failed"
         return f"API request failed ({response.status_code}): {detail}"
+
+
+# Kept as import-compatible names while this CLI grows from the Content API.
+ContentAPIClient = LawsAfricaAPIClient
+ContentAPIError = LawsAfricaAPIError
+DEFAULT_API_BASE_URL = DEFAULT_LEGISLATION_API_BASE_URL

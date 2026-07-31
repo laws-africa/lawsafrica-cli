@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "lawsafrica-cli"
 version = "0.1.0"
-description = "Command-line client for the Laws.Africa Knowledge Base API"
+description = "Command-line client for the Laws.Africa legislation and Knowledge Base APIs"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}

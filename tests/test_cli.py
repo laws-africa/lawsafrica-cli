@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from lawsafrica_cli.client import ContentAPIError
+from lawsafrica_cli.client import LawsAfricaAPIError
 from lawsafrica_cli.cli import app
 
 
@@ -19,6 +19,7 @@ class FakeClient:
         self.json_calls = []
         self.list_calls = []
         self.bytes_calls = []
+        self.post_calls = []
         type(self).instance = self
 
     @classmethod
@@ -47,23 +48,27 @@ class FakeClient:
         self.bytes_calls.append((path, params))
         return b"example-bytes"
 
+    def post_json(self, path, payload):
+        self.post_calls.append((path, payload))
+        return {"results": []}
+
 
 class CLITestCase(unittest.TestCase):
     def setUp(self):
         self.runner = CliRunner()
 
     def test_expression_get_uses_expression_endpoint(self):
-        with patch("lawsafrica_cli.cli.ContentAPIClient", FakeClient):
-            result = self.runner.invoke(app, ["expression", "get", "/akn/za/act/1998/55"])
+        with patch("lawsafrica_cli.cli.LawsAfricaAPIClient", FakeClient):
+            result = self.runner.invoke(app, ["legislation", "expression", "get", "/akn/za/act/1998/55"])
 
         self.assertEqual(0, result.exit_code, result.output)
         self.assertEqual("akn/za/act/1998/55.json", FakeClient.instance.json_calls[0][0])
         self.assertEqual("/akn/za/act/1998/55/eng@1998-01-01", json.loads(result.output)["expression_frbr_uri"])
 
     def test_listing_maps_documented_filters_and_all_pages(self):
-        with patch("lawsafrica_cli.cli.ContentAPIClient", FakeClient):
+        with patch("lawsafrica_cli.cli.LawsAfricaAPIClient", FakeClient):
             result = self.runner.invoke(app, [
-                "expressions", "list", "--place", "za-cpt", "--updated-at-gte", "2026-01-01T00:00:00Z", "--page-size", "100", "--all"
+                "legislation", "expressions", "list", "--place", "za-cpt", "--updated-at-gte", "2026-01-01T00:00:00Z", "--page-size", "100", "--all"
             ])
 
         self.assertEqual(0, result.exit_code, result.output)
@@ -74,9 +79,9 @@ class CLITestCase(unittest.TestCase):
         self.assertTrue(all_pages)
 
     def test_listing_maps_boolean_filters(self):
-        with patch("lawsafrica_cli.cli.ContentAPIClient", FakeClient):
+        with patch("lawsafrica_cli.cli.LawsAfricaAPIClient", FakeClient):
             result = self.runner.invoke(app, [
-                "expressions", "list", "--uncommenced", "--repealed", "--not-principal"
+                "legislation", "expressions", "list", "--uncommenced", "--repealed", "--not-principal"
             ])
 
         self.assertEqual(0, result.exit_code, result.output)
@@ -86,12 +91,12 @@ class CLITestCase(unittest.TestCase):
     def test_content_writes_binary_output_and_html_options(self):
         with (
             TemporaryDirectory() as directory,
-            patch("lawsafrica_cli.cli.ContentAPIClient", FakeClient),
+            patch("lawsafrica_cli.cli.LawsAfricaAPIClient", FakeClient),
             patch("lawsafrica_cli.cli.typer.echo") as echo,
         ):
             output = Path(directory) / "expression.html"
             result = self.runner.invoke(app, [
-                "expression", "content", "akn/za/act/1998/55", "--format", "html", "--output", str(output),
+                "legislation", "expression", "content", "akn/za/act/1998/55", "--format", "html", "--output", str(output),
                 "--resolver", "none", "--no-coverpage", "--standalone",
             ])
             content = output.read_bytes()
@@ -124,8 +129,8 @@ class CLITestCase(unittest.TestCase):
                     }
                 return {"resolved": path}
 
-        with patch("lawsafrica_cli.cli.ContentAPIClient", VersionClient):
-            result = self.runner.invoke(app, ["expression", "versions", "akn/za/act/1998/55"])
+        with patch("lawsafrica_cli.cli.LawsAfricaAPIClient", VersionClient):
+            result = self.runner.invoke(app, ["legislation", "expression", "versions", "akn/za/act/1998/55"])
 
         self.assertEqual(0, result.exit_code, result.output)
         self.assertEqual(
@@ -147,10 +152,78 @@ class CLITestCase(unittest.TestCase):
                     return {"points_in_time": [{"expressions": [
                         {"expression_frbr_uri": "/akn/za/act/1998/55/eng@1998-01-01"},
                     ]}]}
-                raise ContentAPIError("API request failed (404): Not found")
+                raise LawsAfricaAPIError("API request failed (404): Not found")
 
-        with patch("lawsafrica_cli.cli.ContentAPIClient", FailingVersionClient):
-            result = self.runner.invoke(app, ["expression", "versions", "akn/za/act/1998/55"])
+        with patch("lawsafrica_cli.cli.LawsAfricaAPIClient", FailingVersionClient):
+            result = self.runner.invoke(app, ["legislation", "expression", "versions", "akn/za/act/1998/55"])
 
         self.assertEqual(1, result.exit_code)
         self.assertIn("404", result.output)
+
+    def test_kb_list_and_get_use_the_knowledge_base_api_client(self):
+        with patch("lawsafrica_cli.cli.LawsAfricaAPIClient", FakeClient):
+            result = self.runner.invoke(app, [
+                "--kb-api-base-url", "https://kb.example.test/ai/v1",
+                "kb", "list", "--page", "2", "--page-size", "25", "--all",
+            ])
+            list_client = FakeClient.instance
+            get_result = self.runner.invoke(app, ["kb", "get", "za-legislation"])
+
+        self.assertEqual(0, result.exit_code, result.output)
+        self.assertEqual(0, get_result.exit_code, get_result.output)
+        self.assertEqual(
+            ("knowledge-bases", {"page": 2, "page_size": 25}, True),
+            list_client.list_calls[0],
+        )
+        self.assertEqual("https://kb.example.test/ai/v1", list_client.base_url)
+        self.assertEqual(("knowledge-bases/za-legislation", None), FakeClient.instance.json_calls[0])
+
+    def test_kb_retrieve_posts_text_top_k_and_all_schema_filters(self):
+        with patch("lawsafrica_cli.cli.LawsAfricaAPIClient", FakeClient):
+            result = self.runner.invoke(app, [
+                "kb", "retrieve", "za-legislation", "water pollution", "--top-k", "5",
+                "--work-frbr-uri", "/akn/za/act/1998/55",
+                "--work-frbr-uri-in", "/akn/za/act/2008/1",
+                "--work-frbr-uri-in", "/akn/za/act/2009/2",
+                "--expression-frbr-uri", "/akn/za/act/1998/55/eng@2020-01-01",
+                "--expression-frbr-uri-in", "/akn/za/act/2008/1/eng@2020-01-01",
+                "--frbr-place", "za-cpt", "--frbr-place-in", "za-jhb",
+                "--frbr-doctype", "act", "--frbr-doctype-in", "by-law",
+                "--frbr-subtype", "provincial", "--frbr-subtype-in", "municipal",
+                "--not-repealed", "--uncommenced", "--principal",
+            ])
+
+        self.assertEqual(0, result.exit_code, result.output)
+        self.assertEqual("knowledge-bases/za-legislation/retrieve", FakeClient.instance.post_calls[0][0])
+        self.assertEqual(
+            {
+                "text": "water pollution",
+                "top_k": 5,
+                "filters": {
+                    "work_frbr_uri": "/akn/za/act/1998/55",
+                    "work_frbr_uri__in": ["/akn/za/act/2008/1", "/akn/za/act/2009/2"],
+                    "expression_frbr_uri": "/akn/za/act/1998/55/eng@2020-01-01",
+                    "expression_frbr_uri__in": ["/akn/za/act/2008/1/eng@2020-01-01"],
+                    "frbr_place": "za-cpt",
+                    "frbr_place__in": ["za-jhb"],
+                    "frbr_doctype": "act",
+                    "frbr_doctype__in": ["by-law"],
+                    "frbr_subtype": "provincial",
+                    "frbr_subtype__in": ["municipal"],
+                    "repealed": False,
+                    "commenced": False,
+                    "principal": True,
+                },
+            },
+            FakeClient.instance.post_calls[0][1],
+        )
+
+    def test_kb_retrieve_omits_empty_filters(self):
+        with patch("lawsafrica_cli.cli.LawsAfricaAPIClient", FakeClient):
+            result = self.runner.invoke(app, ["kb", "retrieve", "za-legislation", "water pollution"])
+
+        self.assertEqual(0, result.exit_code, result.output)
+        self.assertEqual(
+            ("knowledge-bases/za-legislation/retrieve", {"text": "water pollution", "top_k": 10}),
+            FakeClient.instance.post_calls[0],
+        )

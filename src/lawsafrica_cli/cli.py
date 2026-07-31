@@ -1,4 +1,4 @@
-"""Typer command-line interface for the Laws.Africa Knowledge Base API."""
+"""Typer command-line interface for the Laws.Africa APIs."""
 
 from __future__ import annotations
 
@@ -9,33 +9,54 @@ from typing import Any, Optional
 import click
 import typer
 
-from .client import DEFAULT_API_BASE_URL, ContentAPIClient, ContentAPIError, normalize_frbr_uri
+from .client import (
+    DEFAULT_KB_API_BASE_URL,
+    DEFAULT_LEGISLATION_API_BASE_URL,
+    LawsAfricaAPIClient,
+    LawsAfricaAPIError,
+    normalize_frbr_uri,
+)
 
 
-app = typer.Typer(no_args_is_help=True, help="Use the Laws.Africa Knowledge Base API.")
+app = typer.Typer(no_args_is_help=True, help="Use the Laws.Africa legislation and Knowledge Base APIs.")
+legislation_app = typer.Typer(no_args_is_help=True, help="Explore legislation through the Content API.")
 places_app = typer.Typer(no_args_is_help=True, help="List and inspect places.")
 expressions_app = typer.Typer(no_args_is_help=True, help="List expressions.")
 expression_app = typer.Typer(no_args_is_help=True, help="Fetch an expression and related content.")
-app.add_typer(places_app, name="places")
-app.add_typer(expressions_app, name="expressions")
-app.add_typer(expression_app, name="expression")
+kb_app = typer.Typer(no_args_is_help=True, help="Explore and query Knowledge Bases.")
+legislation_app.add_typer(places_app, name="places")
+legislation_app.add_typer(expressions_app, name="expressions")
+legislation_app.add_typer(expression_app, name="expression")
+app.add_typer(legislation_app, name="legislation")
+app.add_typer(kb_app, name="kb")
 
 
 @app.callback()
 def main(
     ctx: typer.Context,
-    api_base_url: str = typer.Option(
-        DEFAULT_API_BASE_URL,
+    legislation_api_base_url: str = typer.Option(
+        DEFAULT_LEGISLATION_API_BASE_URL,
         "--api-base-url",
-        help="Content API v3 base URL.",
+        "--legislation-api-base-url",
+        help="Legislation Content API v3 base URL.",
+    ),
+    kb_api_base_url: str = typer.Option(
+        DEFAULT_KB_API_BASE_URL,
+        "--kb-api-base-url",
+        help="Knowledge Base API v1 base URL.",
     ),
 ) -> None:
     ctx.ensure_object(dict)
-    ctx.obj["api_base_url"] = api_base_url
+    ctx.obj["legislation_api_base_url"] = legislation_api_base_url
+    ctx.obj["kb_api_base_url"] = kb_api_base_url
 
 
-def _client(ctx: typer.Context) -> ContentAPIClient:
-    return ContentAPIClient.from_env(ctx.obj["api_base_url"])
+def _legislation_client(ctx: typer.Context) -> LawsAfricaAPIClient:
+    return LawsAfricaAPIClient.from_env(ctx.obj["legislation_api_base_url"])
+
+
+def _kb_client(ctx: typer.Context) -> LawsAfricaAPIClient:
+    return LawsAfricaAPIClient.from_env(ctx.obj["kb_api_base_url"])
 
 
 def _emit_json(value: Any) -> None:
@@ -63,18 +84,18 @@ def list_places(
     all_pages: bool = typer.Option(False, "--all", help="Fetch every result page."),
 ) -> None:
     try:
-        with _client(ctx) as client:
+        with _legislation_client(ctx) as client:
             _emit_json(client.list_json("places", _page_params(page, page_size), all_pages=all_pages))
-    except ContentAPIError as error:
+    except LawsAfricaAPIError as error:
         _exit_for_error(error)
 
 
 @places_app.command("get")
 def get_place(ctx: typer.Context, place: str) -> None:
     try:
-        with _client(ctx) as client:
+        with _legislation_client(ctx) as client:
             _emit_json(client.get_json(f"places/{place}"))
-    except ContentAPIError as error:
+    except LawsAfricaAPIError as error:
         _exit_for_error(error)
 
 
@@ -115,22 +136,22 @@ def list_expressions(
     )
     path = f"places/{place}/work-expressions" if place else "work-expressions"
     try:
-        with _client(ctx) as client:
+        with _legislation_client(ctx) as client:
             _emit_json(client.list_json(path, params, all_pages=all_pages))
-    except ContentAPIError as error:
+    except LawsAfricaAPIError as error:
         _exit_for_error(error)
 
 
-def _expression_json(client: ContentAPIClient, frbr_uri: str) -> Any:
+def _expression_json(client: LawsAfricaAPIClient, frbr_uri: str) -> Any:
     return client.get_json(f"{normalize_frbr_uri(frbr_uri)}.json")
 
 
 @expression_app.command("get")
 def get_expression(ctx: typer.Context, frbr_uri: str) -> None:
     try:
-        with _client(ctx) as client:
+        with _legislation_client(ctx) as client:
             _emit_json(_expression_json(client, frbr_uri))
-    except ContentAPIError as error:
+    except LawsAfricaAPIError as error:
         _exit_for_error(error)
 
 
@@ -138,21 +159,21 @@ def get_expression(ctx: typer.Context, frbr_uri: str) -> None:
 def expression_versions(ctx: typer.Context, frbr_uri: str) -> None:
     """Fetch all dated/language expressions listed by an expression's metadata."""
     try:
-        with _client(ctx) as client:
+        with _legislation_client(ctx) as client:
             metadata = _expression_json(client, frbr_uri)
             points_in_time = metadata.get("points_in_time", [])
             if not isinstance(points_in_time, list):
-                raise ContentAPIError("Expression metadata contained invalid points_in_time data.")
+                raise LawsAfricaAPIError("Expression metadata contained invalid points_in_time data.")
             expressions = []
             for point in points_in_time:
                 if not isinstance(point, dict) or not isinstance(point.get("expressions"), list):
-                    raise ContentAPIError("Expression metadata contained invalid expression references.")
+                    raise LawsAfricaAPIError("Expression metadata contained invalid expression references.")
                 for reference in point["expressions"]:
                     if not isinstance(reference, dict) or not isinstance(reference.get("expression_frbr_uri"), str):
-                        raise ContentAPIError("Expression metadata contained an invalid expression FRBR URI.")
+                        raise LawsAfricaAPIError("Expression metadata contained an invalid expression FRBR URI.")
                     expressions.append(_expression_json(client, reference["expression_frbr_uri"]))
             _emit_json({"metadata": metadata, "expressions": expressions})
-    except ContentAPIError as error:
+    except LawsAfricaAPIError as error:
         _exit_for_error(error)
 
 
@@ -160,10 +181,10 @@ def _expression_detail_command(name: str, endpoint: str, help_text: str) -> None
     @expression_app.command(name, help=help_text)
     def detail(ctx: typer.Context, frbr_uri: str) -> None:
         try:
-            with _client(ctx) as client:
+            with _legislation_client(ctx) as client:
                 uri = normalize_frbr_uri(frbr_uri)
                 _emit_json(client.get_json(f"{uri}/{endpoint}.json"))
-        except ContentAPIError as error:
+        except LawsAfricaAPIError as error:
             _exit_for_error(error)
 
 
@@ -194,7 +215,7 @@ def expression_content(
         if standalone:
             params["standalone"] = "1"
     try:
-        with _client(ctx) as client:
+        with _legislation_client(ctx) as client:
             content = client.get_bytes(normalize_frbr_uri(frbr_uri), params)
         if output:
             output.write_bytes(content)
@@ -203,7 +224,117 @@ def expression_content(
             stream = click.get_binary_stream("stdout")
             stream.write(content)
             stream.flush()
-    except ContentAPIError as error:
+    except LawsAfricaAPIError as error:
+        _exit_for_error(error)
+
+
+@kb_app.command("list")
+def list_knowledge_bases(
+    ctx: typer.Context,
+    page: Optional[int] = typer.Option(None, min=1),
+    page_size: Optional[int] = typer.Option(None, min=1),
+    all_pages: bool = typer.Option(False, "--all", help="Fetch every result page."),
+) -> None:
+    """List the Knowledge Bases available to this API key."""
+    try:
+        with _kb_client(ctx) as client:
+            _emit_json(client.list_json("knowledge-bases", _page_params(page, page_size), all_pages=all_pages))
+    except LawsAfricaAPIError as error:
+        _exit_for_error(error)
+
+
+@kb_app.command("get")
+def get_knowledge_base(ctx: typer.Context, code: str) -> None:
+    """Fetch a Knowledge Base's metadata by code."""
+    try:
+        with _kb_client(ctx) as client:
+            _emit_json(client.get_json(f"knowledge-bases/{code}"))
+    except LawsAfricaAPIError as error:
+        _exit_for_error(error)
+
+
+def _kb_filters(
+    *,
+    work_frbr_uri: Optional[str],
+    work_frbr_uri_in: list[str],
+    expression_frbr_uri: Optional[str],
+    expression_frbr_uri_in: list[str],
+    frbr_place: Optional[str],
+    frbr_place_in: list[str],
+    frbr_doctype: Optional[str],
+    frbr_doctype_in: list[str],
+    frbr_subtype: Optional[str],
+    frbr_subtype_in: list[str],
+    repealed: Optional[bool],
+    commenced: Optional[bool],
+    principal: Optional[bool],
+) -> dict[str, Any]:
+    """Build the Knowledge Base API's optional nested filters object."""
+    filters = _optional_params(
+        work_frbr_uri=work_frbr_uri,
+        expression_frbr_uri=expression_frbr_uri,
+        frbr_place=frbr_place,
+        frbr_doctype=frbr_doctype,
+        frbr_subtype=frbr_subtype,
+        repealed=repealed,
+        commenced=commenced,
+        principal=principal,
+    )
+    for name, values in {
+        "work_frbr_uri__in": work_frbr_uri_in,
+        "expression_frbr_uri__in": expression_frbr_uri_in,
+        "frbr_place__in": frbr_place_in,
+        "frbr_doctype__in": frbr_doctype_in,
+        "frbr_subtype__in": frbr_subtype_in,
+    }.items():
+        if values:
+            filters[name] = values
+    return filters
+
+
+@kb_app.command("retrieve")
+def retrieve_knowledge_base(
+    ctx: typer.Context,
+    code: str = typer.Argument(help="Knowledge Base code."),
+    text: str = typer.Argument(help="Text to find matching items for."),
+    top_k: int = typer.Option(10, min=1, max=100, help="Number of results to return."),
+    work_frbr_uri: Optional[str] = typer.Option(None, help="Only this work FRBR URI."),
+    work_frbr_uri_in: list[str] = typer.Option([], help="One of these work FRBR URIs; repeat the option."),
+    expression_frbr_uri: Optional[str] = typer.Option(None, help="Only this expression FRBR URI."),
+    expression_frbr_uri_in: list[str] = typer.Option([], help="One of these expression FRBR URIs; repeat the option."),
+    frbr_place: Optional[str] = typer.Option(None, help="Only this FRBR place code."),
+    frbr_place_in: list[str] = typer.Option([], help="One of these FRBR place codes; repeat the option."),
+    frbr_doctype: Optional[str] = typer.Option(None, help="Only this FRBR document type."),
+    frbr_doctype_in: list[str] = typer.Option([], help="One of these FRBR document types; repeat the option."),
+    frbr_subtype: Optional[str] = typer.Option(None, help="Only this FRBR document subtype."),
+    frbr_subtype_in: list[str] = typer.Option([], help="One of these FRBR document subtypes; repeat the option."),
+    repealed: Optional[bool] = typer.Option(None, "--repealed/--not-repealed", help="Filter legislation by repeal status."),
+    commenced: Optional[bool] = typer.Option(None, "--commenced/--uncommenced", help="Filter legislation by commencement status."),
+    principal: Optional[bool] = typer.Option(None, "--principal/--not-principal", help="Filter legislation by principal-work status."),
+) -> None:
+    """Retrieve the most relevant items from a Knowledge Base."""
+    filters = _kb_filters(
+        work_frbr_uri=work_frbr_uri,
+        work_frbr_uri_in=work_frbr_uri_in,
+        expression_frbr_uri=expression_frbr_uri,
+        expression_frbr_uri_in=expression_frbr_uri_in,
+        frbr_place=frbr_place,
+        frbr_place_in=frbr_place_in,
+        frbr_doctype=frbr_doctype,
+        frbr_doctype_in=frbr_doctype_in,
+        frbr_subtype=frbr_subtype,
+        frbr_subtype_in=frbr_subtype_in,
+        repealed=repealed,
+        commenced=commenced,
+        principal=principal,
+    )
+    payload: dict[str, Any] = {"text": text, "top_k": top_k}
+    if filters:
+        payload["filters"] = filters
+    try:
+        with _kb_client(ctx) as client:
+            _emit_json(client.post_json(f"knowledge-bases/{code}/retrieve", payload))
+    except LawsAfricaAPIError as error:
         _exit_for_error(error)
 
 

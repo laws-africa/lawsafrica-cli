@@ -2,9 +2,10 @@
 
 ## Project Purpose
 
-This is a standalone Python command-line client for the Laws.Africa Knowledge
-Base API. The Python distribution is `lawsafrica-cli`, the import package is
-`lawsafrica_cli`, and the installed executable is `lawsafrica`.
+This is a standalone Python command-line client for the Laws.Africa
+legislation Content API and Knowledge Base API. The Python distribution is
+`lawsafrica-cli`, the import package is `lawsafrica_cli`, and the installed
+executable is `lawsafrica`.
 
 Use expression terminology consistently. The API may resolve a work FRBR URI to
 the latest expression, but CLI commands should describe the returned resources
@@ -50,6 +51,11 @@ Keep the `lawsafrica` command friendly to AI agents and shell automation:
   command, not hidden behind custom summary commands.
 - Preserve API field names and raw JSON shape unless the command explicitly
   documents otherwise.
+- Keep Content API commands under `lawsafrica legislation` and Knowledge Base
+  commands under `lawsafrica kb`.
+- Surface documented Knowledge Base retrieval filters as normal `kb retrieve`
+  options. Repeated `--*-in` options must be encoded as JSON arrays in the
+  nested API `filters` object.
 
 ## Testing
 

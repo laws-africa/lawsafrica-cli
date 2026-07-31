@@ -1,5 +1,7 @@
 # Laws.Africa CLI
 
+[![PyPI](https://img.shields.io/pypi/v/lawsafrica-cli.svg)](https://pypi.org/project/lawsafrica-cli/)
+
 `lawsafrica` is a command-line client for the Laws.Africa Legal Knowledge Platform.
 
 This CLI covers the Legislation Content API and Knowledge Base API. It is designed for AI agents and shell automation:

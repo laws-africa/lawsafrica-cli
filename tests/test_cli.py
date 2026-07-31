@@ -84,10 +84,10 @@ class CLITestCase(unittest.TestCase):
         commands = {
             (): "Run 'lawsafrica docs'",
             ("docs",): "Explain the APIs' core concepts and show official documentation links.",
+            ("places",): "Find country and locality codes for legislation and Knowledge Base filters.",
+            ("places", "list"): "List country and locality codes for legislation and Knowledge Base filters.",
+            ("places", "get"): "Fetch a place and its code for use with --place or --frbr-place.",
             ("legislation",): "Explore legislation through the Content API.",
-            ("legislation", "places"): "List and inspect places.",
-            ("legislation", "places", "list"): "List countries and localities available through the legislation API.",
-            ("legislation", "places", "get"): "Fetch a place by its country or locality code.",
             ("legislation", "expressions"): "List expressions across all places, or filter to one place.",
             ("legislation", "expressions", "list"): "List expressions across all places, or filter to one place.",
             ("legislation", "expression", "get"): "Fetch an expression's JSON metadata.",
@@ -117,9 +117,11 @@ class CLITestCase(unittest.TestCase):
         self.assertIn("https://platform.laws.africa/api-keys/", result.output)
         self.assertIn("does not answer questions", result.output)
         self.assertIn("results[].metadata.work_frbr_uri", result.output)
+        self.assertIn("--frbr-place CODE", result.output)
 
     def test_nontrivial_command_help_includes_an_example_and_reference(self):
         commands = {
+            ("places", "list"): "Example: lawsafrica places list",
             ("legislation", "expressions", "list"): "Example: lawsafrica legislation expressions list",
             ("legislation", "expression", "get"): "Example: lawsafrica legislation expression get",
             ("legislation", "expression", "versions"): "Example: lawsafrica legislation expression versions",
@@ -327,7 +329,7 @@ class CLITestCase(unittest.TestCase):
         environment.pop("LAWSAFRICA_API_KEY", None)
         environment["PYTHONPATH"] = str(Path(__file__).resolve().parents[1] / "src")
         result = subprocess.run(
-            [sys.executable, "-m", "lawsafrica_cli.cli", "legislation", "places", "list"],
+            [sys.executable, "-m", "lawsafrica_cli.cli", "places", "list"],
             cwd=Path(__file__).resolve().parents[1],
             env=environment,
             stdin=subprocess.DEVNULL,

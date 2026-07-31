@@ -54,7 +54,7 @@ legislation_app = typer.Typer(
 )
 places_app = typer.Typer(
     no_args_is_help=True,
-    help="List and inspect places.",
+    help="Find country and locality codes for legislation and Knowledge Base filters.",
     epilog=f"Content API reference: {CONTENT_API_DOCS_URL}",
 )
 expressions_app = typer.Typer(
@@ -78,9 +78,9 @@ kb_app = typer.Typer(
     help="Search Knowledge Bases for relevant legal passages using keywords or phrases.",
     epilog=f"Knowledge Base API reference: {KB_API_DOCS_URL}",
 )
-legislation_app.add_typer(places_app, name="places")
 legislation_app.add_typer(expressions_app, name="expressions")
 legislation_app.add_typer(expression_app, name="expression")
+app.add_typer(places_app, name="places")
 app.add_typer(legislation_app, name="legislation")
 app.add_typer(kb_app, name="kb")
 
@@ -93,8 +93,15 @@ def show_docs() -> None:
 
 The CLI exposes two APIs:
 
+  places       Find country and locality codes shared by both APIs.
   legislation  Browse published legislation, its metadata, versions, and content.
   kb           Search for legal passages using keywords or phrases.
+
+Places
+
+Use `lawsafrica places list` to discover country and locality codes. Use a
+place code with `legislation expressions list --place CODE` or `kb retrieve
+--frbr-place CODE` to narrow results to that jurisdiction.
 
 Works, expressions, and FRBR URIs
 
@@ -123,7 +130,7 @@ work URI you want to retain.
 
 Useful starting points
 
-  lawsafrica legislation places list
+  lawsafrica places list
   lawsafrica legislation expressions list --place za-cpt --page-size 1
   lawsafrica legislation expression get /akn/za/act/1998/55
   lawsafrica kb list
@@ -256,7 +263,7 @@ def _query_text(text: str) -> str:
 @places_app.command(
     "list",
     epilog=(
-        "Example: lawsafrica legislation places list --page-size 1\n\n"
+        "Example: lawsafrica places list --page-size 1\n\n"
         f"Content API reference: {CONTENT_API_DOCS_URL}"
     ),
 )
@@ -266,7 +273,7 @@ def list_places(
     page_size: Optional[int] = typer.Option(None, min=1),
     all_pages: bool = typer.Option(False, "--all", help="Fetch every result page."),
 ) -> None:
-    """List countries and localities available through the legislation API."""
+    """List country and locality codes for legislation and Knowledge Base filters."""
     try:
         with _legislation_client(ctx) as client:
             _emit_json(client.list_json("places", _page_params(page, page_size), all_pages=all_pages))
@@ -277,12 +284,12 @@ def list_places(
 @places_app.command(
     "get",
     epilog=(
-        "Example: lawsafrica legislation places get za-cpt\n\n"
+        "Example: lawsafrica places get za-cpt\n\n"
         f"Content API reference: {CONTENT_API_DOCS_URL}"
     ),
 )
 def get_place(ctx: typer.Context, place: str) -> None:
-    """Fetch a place by its country or locality code."""
+    """Fetch a place and its code for use with --place or --frbr-place."""
     try:
         with _legislation_client(ctx) as client:
             _emit_json(client.get_json(f"places/{place}"))

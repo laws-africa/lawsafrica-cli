@@ -5,7 +5,7 @@ API and Knowledge Base API. It is designed for AI agents and shell automation:
 API responses are emitted as raw JSON on standard output, while diagnostics go
 to standard error.
 
-Run `lawsafrica --help` to discover the two APIs, and `lawsafrica docs` for a
+Run `lawsafrica --help` to discover the APIs, and `lawsafrica docs` for a
 short explanation of works, expressions, FRBR URIs, and links to the official
 developer documentation. Command-group help also links to the relevant API
 reference.
@@ -31,18 +31,23 @@ source prod.env
 set +a
 ```
 
+## Places
+
+Places are shared by the legislation and Knowledge Base APIs. List them to
+find a country or locality code, then pass it as `--place` when listing
+legislation expressions or as `--frbr-place` when retrieving Knowledge Base
+passages:
+
+```sh
+lawsafrica places list
+lawsafrica places get za-cpt
+```
+
 ## Legislation
 
 All Content API commands are under `lawsafrica legislation`. The API resolves a
 work FRBR URI to its current expression where necessary, but the CLI calls the
 returned resources expressions.
-
-Start by finding the applicable place code:
-
-```sh
-lawsafrica legislation places list
-lawsafrica legislation places get za-cpt
-```
 
 List commands fetch one page by default. For a quick count, ask for one result
 and use the API's `count` field. Use `--all` only when the whole result set is
@@ -139,7 +144,7 @@ Production endpoints are the defaults. For a compatible non-production
 service, pass a base URL before the command:
 
 ```sh
-lawsafrica --api-base-url https://api.example.test/v3 legislation places list
+lawsafrica --api-base-url https://api.example.test/v3 places list
 lawsafrica --kb-api-base-url https://api.example.test/ai/v1 kb list
 ```
 

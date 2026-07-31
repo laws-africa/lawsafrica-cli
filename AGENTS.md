@@ -62,8 +62,10 @@ Keep the `lawsafrica` command friendly to AI agents and shell automation:
   links to the official developer documentation.
 - Give non-trivial leaf-command help a concrete example and a link to the
   relevant official API reference.
-- Keep Content API commands under `lawsafrica legislation` and Knowledge Base
-  commands under `lawsafrica kb`.
+- Keep shared place discovery under `lawsafrica places`, Content API
+  legislation commands under `lawsafrica legislation`, and Knowledge Base
+  commands under `lawsafrica kb`. Explain that place codes feed legislation
+  `--place` and Knowledge Base `--frbr-place` filters.
 - Surface documented Knowledge Base retrieval filters as normal `kb retrieve`
   options. Resource filters are repeatable options and must be encoded as JSON
   arrays in the nested API `filters` object.

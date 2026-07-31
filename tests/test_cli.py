@@ -9,6 +9,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
+import click
 from typer.testing import CliRunner
 
 from lawsafrica_cli.client import LawsAfricaAPIError
@@ -104,7 +105,7 @@ class CLITestCase(unittest.TestCase):
             with self.subTest(command=command):
                 result = self.runner.invoke(app, [*command, "--help"])
                 self.assertEqual(0, result.exit_code, result.output)
-                self.assertIn(description, result.output)
+                self.assertIn(description, click.unstyle(result.output))
 
     def test_docs_command_explains_works_expressions_and_api_references(self):
         result = self.runner.invoke(app, ["docs"])
@@ -132,13 +133,15 @@ class CLITestCase(unittest.TestCase):
             with self.subTest(command=command):
                 result = self.runner.invoke(app, [*command, "--help"])
                 self.assertEqual(0, result.exit_code, result.output)
-                self.assertIn(example, result.output)
-                self.assertIn("https://developers.laws.africa/", result.output)
+                help_output = click.unstyle(result.output)
+                self.assertIn(example, help_output)
+                self.assertIn("https://developers.laws.africa/", help_output)
         kb_help = self.runner.invoke(app, ["kb", "retrieve", "--help"])
-        self.assertIn("keywords or phrases", kb_help.output)
-        self.assertIn("not a question", kb_help.output)
-        self.assertIn("--commenced --not-repealed", kb_help.output)
-        self.assertIn("results[].metadata.work_frbr_uri", kb_help.output)
+        kb_help_output = click.unstyle(kb_help.output)
+        self.assertIn("keywords or phrases", kb_help_output)
+        self.assertIn("not a question", kb_help_output)
+        self.assertIn("--commenced --not-repealed", kb_help_output)
+        self.assertIn("results[].metadata.work_frbr_uri", kb_help_output)
 
     def test_version_is_available_without_credentials(self):
         result = self.runner.invoke(app, ["--version"])

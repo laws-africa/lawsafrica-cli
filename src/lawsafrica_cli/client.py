@@ -14,6 +14,8 @@ from cobalt import FrbrUri
 DEFAULT_LEGISLATION_API_BASE_URL = "https://api.laws.africa/v3"
 DEFAULT_KB_API_BASE_URL = "https://api.laws.africa/ai/v1"
 API_KEY_ENVIRONMENT_VARIABLE = "LAWSAFRICA_API_KEY"
+ACCOUNT_URL = "https://platform.laws.africa/"
+API_KEYS_URL = "https://platform.laws.africa/api-keys/"
 
 
 class LawsAfricaAPIError(RuntimeError):
@@ -23,11 +25,16 @@ class LawsAfricaAPIError(RuntimeError):
 def parse_frbr_uri(frbr_uri: str) -> str:
     """Validate and canonicalise an absolute FRBR URI with Cobalt."""
     if not frbr_uri.startswith("/"):
-        raise LawsAfricaAPIError("FRBR URI must begin with '/'.")
+        raise LawsAfricaAPIError(
+            "FRBR URI must begin with '/'. Example: '/akn/za/act/1998/55'."
+        )
     try:
         return str(FrbrUri.parse(frbr_uri))
     except ValueError as error:
-        raise LawsAfricaAPIError(f"Invalid FRBR URI: {frbr_uri!r}.") from error
+        raise LawsAfricaAPIError(
+            f"Invalid FRBR URI: {frbr_uri!r}. Use an absolute URI such as "
+            "'/akn/za/act/1998/55'."
+        ) from error
 
 
 def normalize_frbr_uri(frbr_uri: str) -> str:
@@ -47,7 +54,8 @@ class LawsAfricaAPIClient:
     ) -> None:
         if not api_key:
             raise LawsAfricaAPIError(
-                f"{API_KEY_ENVIRONMENT_VARIABLE} is required; set it to a Laws.Africa API key."
+                f"{API_KEY_ENVIRONMENT_VARIABLE} is required. Create a free account at "
+                f"{ACCOUNT_URL} and create an API key at {API_KEYS_URL}."
             )
         self.base_url = base_url.rstrip("/")
         self._client = client or httpx.Client(timeout=30.0)
@@ -146,9 +154,18 @@ class LawsAfricaAPIClient:
             candidate = payload.get("detail") or payload.get("message")
             if isinstance(candidate, str):
                 detail = candidate
+            elif candidate is None:
+                field_errors = []
+                for field, messages in payload.items():
+                    if isinstance(messages, list) and all(isinstance(message, str) for message in messages):
+                        field_errors.append(f"{field}: {', '.join(messages)}")
+                detail = "; ".join(field_errors)
         if not detail:
             detail = response.reason_phrase or "Request failed"
-        return f"API request failed ({response.status_code}): {detail}"
+        message = f"API request failed ({response.status_code}): {detail}"
+        if response.status_code in {401, 403}:
+            message += f" Check {API_KEY_ENVIRONMENT_VARIABLE} and API access at {API_KEYS_URL}."
+        return message
 
 
 # Kept as import-compatible names while this CLI grows from the Content API.

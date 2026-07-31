@@ -5,6 +5,11 @@ API and Knowledge Base API. It is designed for AI agents and shell automation:
 API responses are emitted as raw JSON on standard output, while diagnostics go
 to standard error.
 
+Run `lawsafrica --help` to discover the two APIs, and `lawsafrica docs` for a
+short explanation of works, expressions, FRBR URIs, and links to the official
+developer documentation. Command-group help also links to the relevant API
+reference.
+
 Install it in an isolated environment:
 
 ```sh
@@ -13,6 +18,9 @@ source .venv/bin/activate
 python -m pip install .
 export LAWSAFRICA_API_KEY='your-api-key'
 ```
+
+Create a free account at [platform.laws.africa](https://platform.laws.africa/),
+then create an API key in the [API keys page](https://platform.laws.africa/api-keys/).
 
 For local production access, keep the key in an untracked `prod.env` file and
 load it without printing it:
@@ -78,6 +86,36 @@ lawsafrica kb list --page-size 1
 lawsafrica kb get za-legislation
 lawsafrica kb retrieve za-legislation "water pollution" --top-k 5
 ```
+
+`kb retrieve` defaults to five results to keep a natural-language retrieval
+focused. Use `--top-k` to request from 1 to 100 results, or pass `-` as the
+query text to read it from standard input:
+
+```sh
+printf '%s' 'water services' | lawsafrica kb retrieve za-legislation - --top-k 3
+```
+
+The query text is a keyword or phrase search, not a question-answering prompt.
+Use focused text such as `water services` or `municipal water supply`, rather
+than `What are the rules for water services?`. The API returns relevant
+passages for the caller to interpret; it does not produce an answer.
+
+### Refine a search to its matching works
+
+After a broad search, read the work FRBR URIs in
+`results[].metadata.work_frbr_uri`. Repeat `--work-frbr-uri` in a follow-up
+search to limit results to those works:
+
+```sh
+lawsafrica kb retrieve za-legislation 'water services' --top-k 3
+
+lawsafrica kb retrieve za-legislation 'commencement' \
+  --work-frbr-uri /akn/za/act/1997/108 \
+  --work-frbr-uri /akn/za/act/1998/55
+```
+
+The filter accepts one or more work URIs and is useful for iteratively
+narrowing a legal research task without introducing a title-search dependency.
 
 `kb retrieve` exposes every filter in the API schema as an option. Each
 resource filter accepts one or more values by repeating the same option; the

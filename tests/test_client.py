@@ -23,9 +23,9 @@ class LawsAfricaAPIClientTestCase(unittest.TestCase):
             "https://api.example.test/v3/akn/za/act/1998/55/eng@2014-01-17/!main~sec_3",
             client.path_url("/akn/za/act/1998/55/eng@2014-01-17/!main~sec_3"),
         )
-        with self.assertRaisesRegex(LawsAfricaAPIError, "must begin with '/'"):
+        with self.assertRaisesRegex(LawsAfricaAPIError, "Example: '/akn/za/act/1998/55'"):
             normalize_frbr_uri("za/act/1998/55")
-        with self.assertRaisesRegex(LawsAfricaAPIError, r"Invalid FRBR URI: '/akn/'"):
+        with self.assertRaisesRegex(LawsAfricaAPIError, r"Invalid FRBR URI: '/akn/'.*Use an absolute URI"):
             normalize_frbr_uri("/akn/")
 
     def test_sends_bearer_api_key_and_follows_next_page(self):
@@ -59,6 +59,10 @@ class LawsAfricaAPIClientTestCase(unittest.TestCase):
             with self.assertRaisesRegex(LawsAfricaAPIError, r"403.*Forbidden") as error:
                 client.get_json("places")
         self.assertNotIn("test-token", str(error.exception))
+
+        with self.make_client(lambda request: httpx.Response(400, json={"top_k": ["Ensure this value is less than or equal to 100."]})) as client:
+            with self.assertRaisesRegex(LawsAfricaAPIError, r"top_k: Ensure this value"):
+                client.post_json("knowledge-bases/za-legislation/retrieve", {"top_k": 101})
 
     def test_missing_api_key_is_rejected(self):
         with self.assertRaisesRegex(LawsAfricaAPIError, "LAWSAFRICA_API_KEY"):

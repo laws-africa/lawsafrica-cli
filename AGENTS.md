@@ -50,16 +50,29 @@ Keep the `lawsafrica` command friendly to AI agents and shell automation:
 - JSON responses go to stdout.
 - Binary content streams to stdout unless `--output FILE` is provided.
 - Diagnostics and save confirmations go to stderr.
+- Never prompt for input. When a command can sensibly consume substantial text,
+  support an explicit stdin path as well as a flag or argument.
 - List commands fetch one page by default and use `--all` to follow pagination.
 - API filters should be exposed as normal options on the relevant listing
   command, not hidden behind custom summary commands.
 - Preserve API field names and raw JSON shape unless the command explicitly
   documents otherwise.
+- Keep `lawsafrica --help` concise but conceptually useful for unfamiliar
+  users. Maintain `lawsafrica docs` as the fuller offline orientation, with
+  links to the official developer documentation.
+- Give non-trivial leaf-command help a concrete example and a link to the
+  relevant official API reference.
 - Keep Content API commands under `lawsafrica legislation` and Knowledge Base
   commands under `lawsafrica kb`.
 - Surface documented Knowledge Base retrieval filters as normal `kb retrieve`
   options. Resource filters are repeatable options and must be encoded as JSON
   arrays in the nested API `filters` object.
+- Describe `kb retrieve` as keyword/phrase search that returns relevant
+  passages, not as question answering. Guide callers to use focused search text
+  rather than natural-language questions.
+- For iterative legislation research, guide callers to take
+  `results[].metadata.work_frbr_uri` values from a broad KB search and repeat
+  `--work-frbr-uri` on a focused follow-up search.
 
 ## Testing
 

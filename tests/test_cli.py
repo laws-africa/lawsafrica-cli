@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -79,6 +82,9 @@ class CLITestCase(unittest.TestCase):
 
     def test_every_command_has_a_help_description(self):
         commands = {
+            (): "Run 'lawsafrica docs'",
+            ("docs",): "Explain the APIs' core concepts and show official documentation links.",
+            ("legislation",): "Explore legislation through the Content API.",
             ("legislation", "places"): "List and inspect places.",
             ("legislation", "places", "list"): "List countries and localities available through the legislation API.",
             ("legislation", "places", "get"): "Fetch a place by its country or locality code.",
@@ -92,13 +98,50 @@ class CLITestCase(unittest.TestCase):
             ("legislation", "expression", "content"): "Fetch expression content as XML, HTML, PDF, EPUB, or ZIP.",
             ("kb", "list"): "List the Knowledge Bases available to this API key.",
             ("kb", "get"): "Fetch a Knowledge Base's metadata by code.",
-            ("kb", "retrieve"): "Retrieve the most relevant items from a Knowledge Base.",
+            ("kb", "retrieve"): "Search a Knowledge Base for relevant passages using keywords or phrases.",
         }
         for command, description in commands.items():
             with self.subTest(command=command):
                 result = self.runner.invoke(app, [*command, "--help"])
                 self.assertEqual(0, result.exit_code, result.output)
                 self.assertIn(description, result.output)
+
+    def test_docs_command_explains_works_expressions_and_api_references(self):
+        result = self.runner.invoke(app, ["docs"])
+
+        self.assertEqual(0, result.exit_code, result.output)
+        self.assertIn("A work is an enduring legal instrument", result.output)
+        self.assertIn("An expression is one version", result.output)
+        self.assertIn("https://developers.laws.africa/content-api/reference", result.output)
+        self.assertIn("https://developers.laws.africa/knowledge-bases/reference", result.output)
+        self.assertIn("https://platform.laws.africa/api-keys/", result.output)
+        self.assertIn("does not answer questions", result.output)
+        self.assertIn("results[].metadata.work_frbr_uri", result.output)
+
+    def test_nontrivial_command_help_includes_an_example_and_reference(self):
+        commands = {
+            ("legislation", "expressions", "list"): "Example: lawsafrica legislation expressions list",
+            ("legislation", "expression", "get"): "Example: lawsafrica legislation expression get",
+            ("legislation", "expression", "versions"): "Example: lawsafrica legislation expression versions",
+            ("legislation", "expression", "content"): "Example: lawsafrica legislation expression content",
+            ("kb", "retrieve"): "Example: lawsafrica kb retrieve",
+        }
+        for command, example in commands.items():
+            with self.subTest(command=command):
+                result = self.runner.invoke(app, [*command, "--help"])
+                self.assertEqual(0, result.exit_code, result.output)
+                self.assertIn(example, result.output)
+                self.assertIn("https://developers.laws.africa/", result.output)
+        kb_help = self.runner.invoke(app, ["kb", "retrieve", "--help"])
+        self.assertIn("keywords or phrases", kb_help.output)
+        self.assertIn("not a question", kb_help.output)
+        self.assertIn("results[].metadata.work_frbr_uri", kb_help.output)
+
+    def test_version_is_available_without_credentials(self):
+        result = self.runner.invoke(app, ["--version"])
+
+        self.assertEqual(0, result.exit_code, result.output)
+        self.assertRegex(result.output, r"^lawsafrica \d+\.\d+\.\d+")
 
     def test_listing_maps_documented_filters_and_all_pages(self):
         with patch("lawsafrica_cli.cli.LawsAfricaAPIClient", FakeClient):
@@ -120,7 +163,8 @@ class CLITestCase(unittest.TestCase):
             ])
 
         self.assertNotEqual(0, result.exit_code)
-        self.assertIn("must be an ISO 8601 timestamp", result.output)
+        self.assertIn("must be an ISO 8601", result.output)
+        self.assertIn("2026-01-01T00:00:00Z", result.output)
         self.assertIsNone(FakeClient.instance)
 
     def test_listing_maps_boolean_filters(self):
@@ -264,6 +308,34 @@ class CLITestCase(unittest.TestCase):
 
         self.assertEqual(0, result.exit_code, result.output)
         self.assertEqual(
-            ("knowledge-bases/za-legislation/retrieve", {"text": "water pollution", "top_k": 10}),
+            ("knowledge-bases/za-legislation/retrieve", {"text": "water pollution", "top_k": 5}),
             FakeClient.instance.post_calls[0],
         )
+
+    def test_kb_retrieve_reads_query_text_from_standard_input(self):
+        with patch("lawsafrica_cli.cli.LawsAfricaAPIClient", FakeClient):
+            result = self.runner.invoke(app, ["kb", "retrieve", "za-legislation", "-"], input="water services\n")
+
+        self.assertEqual(0, result.exit_code, result.output)
+        self.assertEqual(
+            ("knowledge-bases/za-legislation/retrieve", {"text": "water services", "top_k": 5}),
+            FakeClient.instance.post_calls[0],
+        )
+
+    def test_read_command_exits_without_prompting_when_stdin_is_detached(self):
+        environment = os.environ.copy()
+        environment.pop("LAWSAFRICA_API_KEY", None)
+        environment["PYTHONPATH"] = str(Path(__file__).resolve().parents[1] / "src")
+        result = subprocess.run(
+            [sys.executable, "-m", "lawsafrica_cli.cli", "legislation", "places", "list"],
+            cwd=Path(__file__).resolve().parents[1],
+            env=environment,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+
+        self.assertEqual(1, result.returncode)
+        self.assertIn("LAWSAFRICA_API_KEY is required", result.stderr)

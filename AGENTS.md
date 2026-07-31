@@ -23,7 +23,7 @@ environment:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-python -m pip install -e '.[test]'
+python -m pip install -e .
 ```
 
 ## API Credentials

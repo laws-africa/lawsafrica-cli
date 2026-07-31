@@ -156,13 +156,12 @@ lawsafrica --kb-api-base-url https://api.example.test/ai/v1 kb list
 
 ## Development
 
-The package requires Python 3.12 or newer. Create a virtual environment and install the package in editable mode with
-test dependencies:
+The package requires Python 3.12 or newer. Create a virtual environment and install the package in editable mode:
 
 ```sh
 python -m venv .venv
 source .venv/bin/activate
-python -m pip install -e '.[test]'
+python -m pip install -e .
 ```
 
 Unit tests use mocked HTTPX responses and never need live credentials or network access.

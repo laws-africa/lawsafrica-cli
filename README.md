@@ -165,13 +165,7 @@ source .venv/bin/activate
 python -m pip install -e '.[test]'
 ```
 
-Unit tests use mocked HTTPX responses and never need live credentials or network access. Run them from this directory:
-
-```sh
-PYTHONPATH=src ../.venv/bin/python -m unittest discover -s tests -v
-```
-
-If the package is installed editable in the active environment, the shorter equivalent is:
+Unit tests use mocked HTTPX responses and never need live credentials or network access.
 
 ```sh
 python -m unittest discover -s tests -v
